@@ -1,0 +1,73 @@
+version: 2
+jobs:
+  build:
+    working_directory: ~/educi
+    docker:
+      - image: circleci/python:3.7-browsers
+        environment:
+          PIPENV_VENV_IN_PROJECT: true
+          DATABASE_URL: postgresql://root@localhost/circle_test?sslmode=disable
+      - image: circleci/postgres:9.6.5-alpine-ram
+        environment:
+          POSTGRES_USER: root
+          POSTGRES_DB: circle_test
+          POSTGRES_PASSWORD: ""
+      - image: redis:5-alpine
+    steps:
+      - checkout
+      - setup_remote_docker
+      - restore_cache:
+          keys:
+          - v1-dependencies-{{ .Branch }}-{{ checksum "requirements/dev.txt" }}
+      - run:
+          name: Install Python deps in a venv
+          command: |
+            python3 -m venv venv
+            . venv/bin/activate
+            pip install -r requirements/dev.txt
+      - save_cache:
+          key: v1-dependencies-{{ .Branch }}-{{ checksum "requirements/dev.txt" }}
+          paths:
+            - "venv"
+      - run:
+          name: Waiting for PostgreSQL to start
+          command: |
+            for i in `seq 1 10`;
+            do
+              nc -z localhost 5432 && echo Success && exit 0
+              echo -n .
+              sleep 2
+            done
+            echo Failed waiting for Postgres && exit 1
+      - run:
+          name: Waiting for Redis to start
+          command: |
+            for i in `seq 1 10`;
+            do
+              nc -z localhost 6379 && echo Success && exit 0
+              echo -n .
+              sleep 2
+            done
+            echo Failed waiting for Redis && exit 1
+      - run:
+          name: Run Celery workers
+          command: |
+            . venv/bin/activate
+            cd src
+            DJANGO_SETTINGS_MODULE=config.settings.test celery worker -A config --loglevel=info &
+      - run:
+          name: Waiting for Celery to start
+          command: |
+            sleep 5
+      - run: mkdir test-reports
+      - run:
+          name: Run unittests
+          command: |
+            . venv/bin/activate
+            cd src
+            DJANGO_SETTINGS_MODULE=config.settings.test django-admin makemigrations --pythonpath=.
+            DJANGO_SETTINGS_MODULE=config.settings.test django-admin test --pythonpath=.
+      - store_artifacts:
+          path: test-reports/
+      - store_test_results:
+          path: test-reports/

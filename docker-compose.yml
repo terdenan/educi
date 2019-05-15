@@ -1,0 +1,34 @@
+version: '3'
+services:
+  db:
+    image: postgres:latest
+    container_name: ps
+  redis:
+    image: redis:latest
+    container_name: redis
+    expose:
+      - "6379"
+  web:
+    build: .
+    container_name: dg
+    command: bash -c "sleep 5 && python manage.py makemigrations && python manage.py migrate && python manage.py runserver 0.0.0.0:8000"
+    depends_on:
+      - db
+      - redis
+    volumes:
+      - ./src:/src
+      - /var/run/docker.sock:/var/run/docker.sock
+    ports:
+      - "8000:8000"
+  celery:
+    build: .
+    container_name: celery
+    environment:
+      - DJANGO_SETTINGS_MODULE=config.settings.local
+    command: celery worker -A config --loglevel=info
+    volumes:
+      - ./src:/src
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      - web
+      - redis

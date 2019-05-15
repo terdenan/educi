@@ -1,0 +1,36 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+
+# Local env files
+settings.ini
+
+# NPM modules and distribution files
+node_modules
+dist/
+!src/educi-frontend/dist/
+
+# Log files
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Editor directories and files
+.idea
+.vscode
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw*
+
+# Migration files
+**/migrations/*.py
+!**/migrations/__init__.py
+
+# Static files directory
+static/
+
+# Media files
+media/
+media_test/
